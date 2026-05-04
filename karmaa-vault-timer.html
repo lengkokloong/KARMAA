@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KARMAA — CALL 9-1-1</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --red: #e01a1a;
+    --red-dark: #9a0f0f;
+    --red-glow: rgba(224,26,26,0.4);
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --text: #f0f0f0;
+    --text-dim: #888;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+  .container {
+    width: 100%;
+    max-width: 420px;
+    padding: 0 20px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── MATCH SCREEN ── */
+  .match-header {
+    text-align: center;
+    padding: 40px 0 28px;
+  }
+  .crown { font-size: 28px; display: block; margin-bottom: 8px; }
+  .artist-name {
+    font-family: 'Black Ops One', cursive;
+    font-size: clamp(44px,13vw,60px);
+    color: var(--text);
+    text-shadow: -2px -2px 0 var(--red), 2px 2px 0 var(--red-dark), 0 0 40px var(--red-glow);
+    letter-spacing: 4px;
+    line-height: 0.9;
+  }
+  .match-subtitle {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: var(--red);
+    margin-top: 10px;
+    text-transform: uppercase;
+  }
+  .match-intro {
+    font-size: 13px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-bottom: 28px;
+    line-height: 1.6;
+    letter-spacing: 0.5px;
+  }
+  .question-block { margin-bottom: 22px; }
+  .question-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .question-text {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+  .options { display: flex; flex-direction: column; gap: 8px; }
+  .option {
+    background: var(--surface);
+    border: 1px solid #222;
+    border-radius: 6px;
+    padding: 12px 16px;
+    cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    transition: all 0.2s ease;
+    text-align: left;
+  }
+  .option:hover { border-color: var(--red-dark); color: var(--text); }
+  .option.selected {
+    border-color: var(--red);
+    color: var(--text);
+    background: #1a0a0a;
+  }
+  .option.selected::before { content: '✓ '; color: var(--red); }
+  .match-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 8px;
+    opacity: 0.4;
+    transition: all 0.2s ease;
+  }
+  .match-btn.ready { opacity: 1; }
+  .match-btn.ready:hover { background: #f52222; transform: translateY(-1px); box-shadow: 0 4px 20px var(--red-glow); }
+
+  /* ── RESULT SCREEN ── */
+  .result-header { text-align: center; padding: 40px 0 20px; }
+  .result-eyebrow {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    letter-spacing: 5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .result-house {
+    font-family: 'Black Ops One', cursive;
+    font-size: clamp(28px,8vw,38px);
+    color: var(--red);
+    text-shadow: 0 0 30px var(--red-glow);
+    letter-spacing: 2px;
+    line-height: 1.1;
+  }
+  .result-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 16px 0 28px;
+    line-height: 1.7;
+    text-align: center;
+  }
+  .result-card {
+    background: var(--surface);
+    border: 1px solid #222;
+    border-top: 2px solid var(--red);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .result-card-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .result-answers { display: flex; flex-direction: column; gap: 8px; }
+  .result-answer {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 8px;
+  }
+  .result-answer span:first-child { color: var(--red); min-width: 16px; }
+  .enter-btn {
+    width: 100%;
+    padding: 18px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Black Ops One', cursive;
+    font-size: 16px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .enter-btn:hover { background: #f52222; transform: translateY(-1px); box-shadow: 0 4px 20px var(--red-glow); }
+
+  /* ── VAULT SCREEN ── */
+  .vault-header { text-align: center; padding: 40px 0 20px; }
+  .house-badge {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 9px;
+    letter-spacing: 4px;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .vault-artist {
+    font-family: 'Black Ops One', cursive;
+    font-size: clamp(44px,13vw,60px);
+    color: var(--text);
+    text-shadow: -2px -2px 0 var(--red), 2px 2px 0 var(--red-dark), 0 0 40px var(--red-glow);
+    letter-spacing: 4px;
+    line-height: 0.9;
+  }
+  .track-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    text-transform: uppercase;
+  }
+  .track-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  .countdown-section { margin: 28px 0 24px; }
+  .time-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 10px;
+    letter-spacing: 5px;
+    color: var(--red);
+    text-align: center;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .time-label::before,.time-label::after { content:''; height:1px; width:30px; background:var(--red); opacity:0.5; }
+  .countdown-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .time-block {
+    background: var(--surface);
+    border: 1px solid #222;
+    border-top: 2px solid var(--red-dark);
+    border-radius: 6px;
+    padding: 14px 6px 10px;
+    text-align: center;
+  }
+  .time-number {
+    font-family: 'Black Ops One', cursive;
+    font-size: clamp(26px,7vw,34px);
+    color: var(--text);
+    line-height: 1;
+    display: block;
+  }
+  .time-unit {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    display: block;
+  }
+  .progress-section { margin-bottom: 24px; }
+  .progress-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+  .progress-title { font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700; letter-spacing:3px; color:var(--text); text-transform:uppercase; }
+  .progress-pct { font-family:'Black Ops One',cursive; font-size:22px; color:var(--red); }
+  .progress-bar-bg { background:var(--surface2); border-radius:3px; height:8px; overflow:hidden; }
+  .progress-bar-fill { height:100%; background:linear-gradient(90deg,var(--red-dark),var(--red)); border-radius:3px; transition:width 0.8s cubic-bezier(0.4,0,0.2,1); }
+  .fan-count { font-size:12px; color:var(--text-dim); margin-top:6px; display:flex; align-items:center; gap:5px; }
+  .fan-dot { width:6px; height:6px; border-radius:50%; background:var(--red); animation:pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+  .actions-label { font-family:'Barlow Condensed',sans-serif; font-size:10px; letter-spacing:4px; color:var(--text-dim); text-align:center; margin-bottom:14px; text-transform:uppercase; }
+  .btn {
+    display:flex; align-items:center; justify-content:space-between;
+    width:100%; padding:16px 20px; border-radius:6px; border:none; cursor:pointer;
+    font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase; text-decoration:none;
+    margin-bottom:10px; transition:all 0.2s ease;
+  }
+  .btn-stream { background:var(--red); color:white; }
+  .btn-stream:hover { background:#f52222; transform:translateY(-1px); box-shadow:0 4px 20px var(--red-glow); }
+  .btn-share { background:var(--surface2); color:var(--text); border:1px solid #2a2a2a; }
+  .btn-share:hover { border-color:var(--red-dark); transform:translateY(-1px); }
+  .btn-invite { background:transparent; color:var(--text-dim); border:1px solid #222; }
+  .btn-invite:hover { color:var(--text); border-color:#444; transform:translateY(-1px); }
+  .btn-cut { font-family:'Barlow Condensed',sans-serif; font-size:11px; color:rgba(255,255,255,0.6); background:rgba(0,0,0,0.2); padding:2px 8px; border-radius:3px; letter-spacing:1px; }
+  .btn-stream .btn-cut { color:rgba(255,255,255,0.7); }
+  .toast {
+    position:fixed; bottom:30px; left:50%;
+    transform:translateX(-50%) translateY(20px);
+    background:var(--surface2); border:1px solid var(--red-dark);
+    color:var(--text); padding:12px 24px; border-radius:6px;
+    font-family:'Barlow Condensed',sans-serif; font-size:13px; letter-spacing:1px;
+    opacity:0; transition:all 0.3s ease; pointer-events:none; z-index:100; white-space:nowrap;
+  }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .footer { text-align:center; margin-top:30px; padding-top:20px; border-top:1px solid #1a1a1a; }
+  .footer-text { font-size:10px; color:#333; letter-spacing:2px; text-transform:uppercase; }
+  .footer-brand { color:var(--red-dark); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ── SCREEN 1: COMPATIBILITY MATCH ── -->
+  <div class="screen active" id="screen-match">
+    <div class="match-header">
+      <span class="crown">👑</span>
+      <div class="artist-name">KARMAA</div>
+      <div class="match-subtitle">Find Your House</div>
+    </div>
+    <p class="match-intro">Answer 3 quick questions. We'll place you in the right corner of KarNation.</p>
+
+    <div class="question-block">
+      <span class="question-label">Question 1 of 3</span>
+      <div class="question-text">Which part of KARMAA's world resonates with you most?</div>
+      <div class="options" id="q1-options">
+        <div class="option" onclick="select(1,'The Music (Sound / Vocals)',this)">The Music (Sound / Vocals)</div>
+        <div class="option" onclick="select(1,'The Fashion & Aesthetic',this)">The Fashion & Aesthetic</div>
+        <div class="option" onclick="select(1,'The Message & Personality',this)">The Message & Personality</div>
+      </div>
+    </div>
+
+    <div class="question-block">
+      <span class="question-label">Question 2 of 3</span>
+      <div class="question-text">How do you prefer to help KARMAA win?</div>
+      <div class="options" id="q2-options">
+        <div class="option" onclick="select(2,'Boosting the Vault (Streaming / Sharing)',this)">Boosting the Vault (Streaming / Sharing)</div>
+        <div class="option" onclick="select(2,'Creative Support (Art / Edits)',this)">Creative Support (Art / Edits)</div>
+        <div class="option" onclick="select(2,'Financial Support (Merch / Retainer)',this)">Financial Support (Merch / Retainer)</div>
+      </div>
+    </div>
+
+    <div class="question-block">
+      <span class="question-label">Question 3 of 3</span>
+      <div class="question-text">What type of fan experience do you want in this House?</div>
+      <div class="options" id="q3-options">
+        <div class="option" onclick="select(3,'Behind-the-scenes & unreleased content',this)">Behind-the-scenes & unreleased content</div>
+        <div class="option" onclick="select(3,'Fan theories & lore discussions',this)">Fan theories & lore discussions</div>
+        <div class="option" onclick="select(3,'Concert meetups / ticket alerts',this)">Concert meetups / ticket alerts</div>
+        <div class="option" onclick="select(3,'Memes, fan art & casual hype',this)">Memes, fan art & casual hype</div>
+        <div class="option" onclick="select(3,'Early access & exclusive merch drops',this)">Early access & exclusive merch drops</div>
+      </div>
+    </div>
+
+    <button class="match-btn" id="match-btn" onclick="showResult()">Find My House →</button>
+    <div class="footer"><div class="footer-text">Powered by <span class="footer-brand">Fanlink</span></div></div>
+  </div>
+
+  <!-- ── SCREEN 2: RESULT ── -->
+  <div class="screen" id="screen-result">
+    <div class="result-header">
+      <div class="result-eyebrow">You've been placed in</div>
+      <div class="result-house" id="result-house-name">—</div>
+    </div>
+    <p class="result-desc" id="result-desc">—</p>
+    <div class="result-card">
+      <div class="result-card-title">Your Answers</div>
+      <div class="result-answers" id="result-answers"></div>
+    </div>
+    <button class="enter-btn" onclick="showVault()">⚡ Enter the Vault</button>
+    <div class="footer"><div class="footer-text">Powered by <span class="footer-brand">Fanlink</span></div></div>
+  </div>
+
+  <!-- ── SCREEN 3: VAULT TIMER ── -->
+  <div class="screen" id="screen-vault">
+    <div class="vault-header">
+      <span class="house-badge" id="vault-house-badge">KarNation</span>
+      <div class="vault-artist">KARMAA</div>
+      <div class="track-label">New track dropping in</div>
+      <div class="track-name">CALL 9-1-1</div>
+    </div>
+
+    <div class="countdown-section">
+      <div class="time-label">⚡ TIME REMAINING</div>
+      <div class="countdown-grid">
+        <div class="time-block"><span class="time-number" id="days">--</span><span class="time-unit">DAYS</span></div>
+        <div class="time-block"><span class="time-number" id="hours">--</span><span class="time-unit">HRS</span></div>
+        <div class="time-block"><span class="time-number" id="mins">--</span><span class="time-unit">MINS</span></div>
+        <div class="time-block"><span class="time-number" id="secs">--</span><span class="time-unit">SECS</span></div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-header">
+        <div class="progress-title">KarNation Progress</div>
+        <div class="progress-pct" id="pct">0%</div>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="bar" style="width:0%"></div></div>
+      <div class="fan-count"><div class="fan-dot"></div><span id="fan-count-text">Loading...</span></div>
+    </div>
+
+    <div class="actions-label">Complete tasks to speed up the drop</div>
+
+    <a href="https://open.spotify.com/artist/1J6GFbFd6KeiPNzx44ngVj" target="_blank" class="btn btn-stream" onclick="logAction('stream')">
+      <span>🎵 Stream on Spotify</span><span class="btn-cut">−30 MINS</span>
+    </a>
+    <button class="btn btn-share" onclick="sharePage()">
+      <span>📢 Share This Page</span><span class="btn-cut">−1 HR</span>
+    </button>
+    <button class="btn btn-invite" onclick="inviteFriend()">
+      <span>👥 Invite a Friend</span><span class="btn-cut">−2 HRS</span>
+    </button>
+
+    <div class="footer"><div class="footer-text">Powered by <span class="footer-brand">Fanlink</span></div></div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── CONFIG ──
+  const SUPABASE_URL = 'https://wfhoxnvobvyruxrknalw.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_MoPjD5y7VJi62SpfXuHO1A_eHMHNAld';
+  const ARTIST_NAME  = 'KARMAA';
+  const CUTS = { stream: 30, share: 60, invite: 120 };
+  const GOAL = 500;
+
+  const HOUSE_MAP = {
+    'The Music (Sound / Vocals)':    { name: 'The Sound House',    desc: 'You\'re here for the raw music. The voice, the production, the feeling. This is where KarNation\'s truest listeners live.' },
+    'The Fashion & Aesthetic':       { name: 'The Visual House',   desc: 'You\'re drawn to KARMAA\'s world — the look, the vibe, the aesthetic. Style is your language.' },
+    'The Message & Personality':     { name: 'The Inner Circle',   desc: 'You connect with who KARMAA is beyond the music. Her story, her energy, her truth. Welcome to the deepest layer of KarNation.' },
+  };
+
+  const { createClient } = supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let answers = { q1: null, q2: null, q3: null };
+  let artistId = null, unlockDate = null;
+
+  // ── COMPATIBILITY MATCH ──
+  function select(q, value, el) {
+    const opts = document.querySelectorAll('#q' + q + '-options .option');
+    opts.forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    answers['q' + q] = value;
+    checkReady();
+  }
+
+  function checkReady() {
+    const btn = document.getElementById('match-btn');
+    if (answers.q1 && answers.q2 && answers.q3) btn.classList.add('ready');
+    else btn.classList.remove('ready');
+  }
+
+  function showResult() {
+    if (!answers.q1 || !answers.q2 || !answers.q3) { showToast('Please answer all 3 questions'); return; }
+    const house = HOUSE_MAP[answers.q1] || { name: 'KarNation', desc: 'Welcome to the family.' };
+    document.getElementById('result-house-name').textContent = house.name;
+    document.getElementById('result-desc').textContent = house.desc;
+    const answersEl = document.getElementById('result-answers');
+    answersEl.innerHTML = [
+      { q: 'Resonates with', a: answers.q1 },
+      { q: 'Helps by', a: answers.q2 },
+      { q: 'Wants', a: answers.q3 }
+    ].map(item => `<div class="result-answer"><span>▸</span><span><strong>${item.q}:</strong> ${item.a}</span></div>`).join('');
+    switchScreen('screen-result');
+    saveAnswers();
+  }
+
+  async function saveAnswers() {
+    if (!artistId) await initArtist();
+    try {
+      await db.from('fan_actions').insert({
+        artist_id: artistId,
+        action_type: 'compatibility_match',
+        created_at: new Date().toISOString()
+      });
+    } catch(e) {}
+    sessionStorage.setItem('karmaa_house', answers.q1);
+  }
+
+  function showVault() {
+    const house = HOUSE_MAP[answers.q1] || { name: 'KarNation' };
+    document.getElementById('vault-house-badge').textContent = house.name;
+    switchScreen('screen-vault');
+    initVault();
+  }
+
+  function switchScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    window.scrollTo(0,0);
+  }
+
+  // ── VAULT ──
+  async function initArtist() {
+    const { data } = await db.from('artists').select('*').eq('name', ARTIST_NAME).single();
+    if (data) { artistId = data.id; unlockDate = new Date(data.unlock_date); }
+  }
+
+  async function initVault() {
+    await initArtist();
+    startCountdown();
+    await refreshProgress();
+  }
+
+  function startCountdown() { updateClock(); setInterval(updateClock, 1000); }
+
+  function updateClock() {
+    if (!unlockDate) return;
+    const diff = unlockDate - new Date();
+    if (diff <= 0) { ['days','hours','mins','secs'].forEach(id => document.getElementById(id).textContent = '00'); return; }
+    document.getElementById('days').textContent  = String(Math.floor(diff/86400000)).padStart(2,'0');
+    document.getElementById('hours').textContent = String(Math.floor((diff%86400000)/3600000)).padStart(2,'0');
+    document.getElementById('mins').textContent  = String(Math.floor((diff%3600000)/60000)).padStart(2,'0');
+    document.getElementById('secs').textContent  = String(Math.floor((diff%60000)/1000)).padStart(2,'0');
+  }
+
+  async function refreshProgress() {
+    const { count } = await db.from('fan_actions').select('*',{count:'exact',head:true}).eq('artist_id',artistId);
+    const total = count||0;
+    const pct = Math.min(Math.round((total/GOAL)*100),100);
+    document.getElementById('pct').textContent = pct+'%';
+    document.getElementById('bar').style.width = pct+'%';
+    document.getElementById('fan-count-text').textContent = total.toLocaleString()+' fans helping right now';
+  }
+
+  async function logAction(type) {
+    if (!artistId) return;
+    const cutMs = CUTS[type]*60*1000;
+    unlockDate = new Date(unlockDate - cutMs);
+    await db.from('artists').update({unlock_date:unlockDate.toISOString()}).eq('id',artistId);
+    await db.from('fan_actions').insert({artist_id:artistId,action_type:type});
+    await refreshProgress();
+  }
+
+  async function sharePage() {
+    await logAction('share');
+    if (navigator.share) { navigator.share({title:'KARMAA — CALL 9-1-1',text:"Help drop KARMAA's new track faster!",url:window.location.href}); }
+    else { navigator.clipboard.writeText(window.location.href); showToast('Link copied ✓'); }
+  }
+
+  async function inviteFriend() {
+    await logAction('invite');
+    const msg = encodeURIComponent("Help KARMAA drop CALL 9-1-1 faster! "+window.location.href);
+    if (navigator.share) { navigator.share({title:'Join KarNation',text:decodeURIComponent(msg),url:window.location.href}); }
+    else { window.open('sms:?body='+msg); }
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'),2500);
+  }
+
+  // Check if already matched this session
+  if (sessionStorage.getItem('karmaa_house')) {
+    answers.q1 = sessionStorage.getItem('karmaa_house');
+    answers.q2 = 'returning';
+    answers.q3 = 'returning';
+    showVault();
+  }
+</script>
+</body>
+</html>
